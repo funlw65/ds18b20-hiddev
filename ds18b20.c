@@ -11,14 +11,6 @@
 
 #define close_return(x) do { close(fd); return x; } while(0);
 
-int convert_temp(unsigned char *sp) {
-	short t;
-
-	t = ((short)sp[1] << 8) | sp[0];
-    
-	return (int)t * 1000 / 16;
-}
-
 int main(void) {
     int fd, rc;
 
@@ -69,7 +61,6 @@ int main(void) {
     size_t n = 9;
     unsigned char report[9];
     unsigned char crc;
-    int temp;
 
     struct hiddev_report_info rep_info_i;
 	struct hiddev_usage_ref_multi ref_multi_i;
@@ -84,45 +75,41 @@ int main(void) {
 	ref_multi_i.uref.usage_index = 0;
 	ref_multi_i.num_values = n;
 
-measure:
-    rc = ioctl(fd, HIDIOCGREPORT, &rep_info_i);
-
-    if (rc < 0) {
-        perror("ioctl");
-        close_return(1);
-    }
-
-    rc = ioctl(fd, HIDIOCGUSAGES, &ref_multi_i);
-
-    if (rc < 0) {
-        perror("ioctl");
-        close_return(1);
-    }
-
     size_t i;
+    short temp;
 
-    for (i = 0; i < n; ++i) {
-        report[i] = ref_multi_i.values[i];
+    while (1) {
+        rc = ioctl(fd, HIDIOCGREPORT, &rep_info_i);
+
+        if (rc < 0) {
+            perror("ioctl");
+            close_return(1);
+        }
+
+        rc = ioctl(fd, HIDIOCGUSAGES, &ref_multi_i);
+
+        if (rc < 0) {
+            perror("ioctl");
+            close_return(1);
+        }
+
+        for (i = 0; i < n; ++i) {
+            printf("%02X ", report[i] = ref_multi_i.values[i]);
+        }
+
+        crc = crc8(report, 9);
+
+        printf("(CRC %s)\n", (crc == 0) ? "OK" : "ERROR");
+
+        if (crc) {
+            close_return(1);
+        }
+
+        temp = ((short)report[1] << 8) | report[0];
+        printf("Temperature: %.04f\n", (float)temp / 16);
+        
+        sleep(1);
     }
-
-    for (i = 0; i < n; ++i) {
-        printf("%02X ", report[i]);
-    }
-
-	crc = crc8(report, 9);
-
-	printf("(CRC %s)\n", (crc == 0) ? "OK" : "ERROR");
-
-	if (crc) {
-		close_return(1);
-	}
-
-	temp = convert_temp(report);
-	printf("Temperature: %d.%03d*C\n", temp / 1000, abs(temp) % 1000);
-    
-    sleep(1);
-    
-    goto measure;
 
     close(fd);
     return 0;
