@@ -3,7 +3,7 @@
 #include <sys/ioctl.h>
 //#include <asm/types.h>
 #include <linux/hiddev.h>
-//#include <string.h>
+#include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
 
@@ -19,7 +19,6 @@ int main(void) {
         return 1;
     }
 
-#if 0
     struct hiddev_devinfo device_info;
 
     rc = ioctl(fd, HIDIOCGDEVINFO, &device_info);
@@ -56,7 +55,11 @@ int main(void) {
     }
 
     printf("Manufacturer: %s\nProduct: %s\n", hstring_man.value, hstring_prod.value);
-#endif
+    
+    if (strcmp(hstring_man.value, "usb@6bez10.info") != 0 || strcmp(hstring_prod.value, "DS18B20 v1") != 0) {
+        fprintf(stderr, "Your device is not supported by this software\n");
+        close_return(1);
+    }
 
     size_t n = 9;
     unsigned char report[9];
@@ -106,7 +109,7 @@ int main(void) {
         }
 
         temp = ((short)report[1] << 8) | report[0];
-        printf("Temperature: %.04f\n", (float)temp / 16);
+        printf("Temperature: %.04f*C\n", (float)temp / 16);
         
         sleep(1);
     }
